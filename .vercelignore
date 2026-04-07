@@ -1,5 +1,4 @@
-# Ignore admin-panel during Next.js build
-admin-panel/
+# Ignore modules during build
 node_modules/
 .env
 .env.local
