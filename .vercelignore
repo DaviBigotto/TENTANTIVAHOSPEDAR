@@ -1,0 +1,10 @@
+# Ignore admin-panel during Next.js build
+admin-panel/
+node_modules/
+.env
+.env.local
+.env.*.local
+dist/
+.next/
+out/
+build/
