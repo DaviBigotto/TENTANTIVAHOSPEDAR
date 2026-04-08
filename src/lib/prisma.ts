@@ -1,5 +1,9 @@
 import { PrismaClient } from '@prisma/client'
 
+if (!process.env.DATABASE_URL) {
+  console.warn("⚠️ DATABASE_URL não encontrada no process.env! Verifique o arquivo .env");
+}
+
 const prismaClientSingleton = () => {
   return new PrismaClient()
 }

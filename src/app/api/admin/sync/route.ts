@@ -78,45 +78,51 @@ export async function POST(req: Request) {
     // 3. Upsert to Prisma
     let syncedCount = 0;
     for (const prod of filtered) {
-        const externalId = prod._id.$oid;
-        const nome = prod.nome;
-        const categoriaObj = prod.categorias?.find((c: any) => targetCategories.includes(c.$oid));
-        
-        // Resolve simple category string name based on target ID
-        let catName = 'Importados';
-        if (categoriaObj?.$oid === '66a29d6d82566b4ded35b45b') catName = 'Tester';
-        if (categoriaObj?.$oid === '633e196a4bbfb153452e5c63') catName = 'Victoria Secret';
-        if (categoriaObj?.$oid === '64d5583b95f5fa75b4326b2c') catName = 'Árables';
+        try {
+            const externalId = prod._id.$oid;
+            const nome = prod.nome;
+            const categoriaObj = prod.categorias?.find((c: any) => targetCategories.includes(c.$oid));
+            
+            // Resolve simple category string name based on target ID
+            let catName = 'Importados';
+            if (categoriaObj?.$oid === '66a29d6d82566b4ded35b45b') catName = 'Tester';
+            if (categoriaObj?.$oid === '633e196a4bbfb153452e5c63') catName = 'Victoria Secret';
+            if (categoriaObj?.$oid === '64d5583b95f5fa75b4326b2c') catName = 'Árables';
 
-        const imagem_url = prod.imagemUrl || null;
-        const preco_custo = prod.variacoes?.[0]?.preco || prod.preco || 0;
-        const estoque = prod.variacoes?.[0]?.estoque || prod.estoque || 0;
-        const disponivel = estoque > 0 && !prod.esgotado;
+            const imagem_url = prod.imagemUrl || null;
+            const preco_custo = prod.variacoes?.[0]?.preco || prod.preco || 0;
+            const estoque = prod.variacoes?.[0]?.estoque || prod.estoque || 0;
+            const disponivel = estoque > 0 && !prod.esgotado;
 
-        await prisma.product.upsert({
-            where: { external_id: externalId },
-            update: {
-                nome,
-                categoria: catName,
-                imagem_url,
-                preco_custo,
-                estoque,
-                disponivel,
-                updated_at: new Date()
-            },
-            create: {
-                external_id: externalId,
-                nome,
-                categoria: catName,
-                imagem_url,
-                preco_custo,
-                preco_venda: 0, // Admin must set resale price manually
-                estoque,
-                disponivel,
-                publicar_no_site: false // Hidden by default
-            }
-        });
-        syncedCount++;
+            await prisma.product.upsert({
+                where: { external_id: externalId },
+                update: {
+                    nome,
+                    categoria: catName,
+                    imagem_url,
+                    preco_custo,
+                    estoque,
+                    disponivel,
+                    updated_at: new Date()
+                },
+                create: {
+                    external_id: externalId,
+                    nome,
+                    categoria: catName,
+                    imagem_url,
+                    preco_custo,
+                    preco_venda: 0, // Admin must set resale price manually
+                    estoque,
+                    disponivel,
+                    publicar_no_site: false, // Oculto por padrão para revisão
+                    classificacao: 'Unissex'
+                }
+            });
+            syncedCount++;
+        } catch (itemError) {
+            console.error("Item sync error: ", itemError);
+            // Continue with next product
+        }
     }
     
     return NextResponse.json({ 
