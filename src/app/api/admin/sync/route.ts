@@ -75,40 +75,49 @@ export async function POST(req: Request) {
     }
 
     // 2. Filter Target Categories (DESATIVADO PARA TRAZER TUDO)
-    const filtered = allProducts; // Trazendo todos os 640 produtos
-
-    // 3. Upsert to Prisma
+    const filtered = allProducts; 
     let syncedCount = 0;
+    
     for (const prod of filtered) {
         try {
-            const externalId = prod._id.$oid;
-            const nome = prod.nome;
-            
-            // Tenta pegar o nome da categoria se existir, senão usa 'Geral'
+            const externalId = String(prod._id?.$oid || prod._id);
+            if (!externalId) continue;
+
+            const nome = prod.nome || 'Produto Sem Nome';
             const catName = prod.categorias?.[0]?.nome || 'Importados';
-            const imagem_url = prod.imagemUrl || null;
-            const preco_custo = prod.variacoes?.[0]?.preco || prod.preco || 0;
-            const estoque = prod.variacoes?.[0]?.estoque || prod.estoque || 0;
+            const imagem_url = prod.imagemUrl || '';
+            const preco_custo = Number(prod.variacoes?.[0]?.preco || prod.preco || 0);
+            const estoque = Number(prod.variacoes?.[0]?.estoque || prod.estoque || 0);
             const disponivel = estoque > 0 && !prod.esgotado;
 
             await prisma.product.upsert({
                 where: { external_id: externalId },
-                update: { nome, categoria: catName, imagem_url, preco_custo, estoque, disponivel, updated_at: new Date() },
+                update: { 
+                    nome, 
+                    categoria: catName, 
+                    imagem_url, 
+                    preco_custo: isNaN(preco_custo) ? 0 : preco_custo, 
+                    estoque: isNaN(estoque) ? 0 : estoque, 
+                    disponivel, 
+                    updated_at: new Date() 
+                },
                 create: {
                     external_id: externalId,
                     nome,
                     categoria: catName,
                     imagem_url,
-                    preco_custo,
+                    preco_custo: isNaN(preco_custo) ? 0 : preco_custo,
                     preco_venda: 0,
-                    estoque,
+                    estoque: isNaN(estoque) ? 0 : estoque,
                     disponivel,
                     publicar_no_site: false,
                     classificacao: 'Unissex'
                 }
             });
             syncedCount++;
-        } catch (e) {}
+        } catch (err: any) {
+            console.error(`Erro no produto ${prod.nome}:`, err.message);
+        }
     }
     
     return NextResponse.json({ 
