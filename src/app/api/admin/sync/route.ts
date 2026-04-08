@@ -62,6 +62,21 @@ export async function POST(req: Request) {
         if (page > 15) break; // Reduzi o limite para o Vercel não dar timeout
     }
     
+    // Debug: Collect unique categories found
+    const foundCategories: Record<string, string> = {};
+    allProducts.forEach(p => {
+        p.categorias?.forEach((c: any) => {
+            if (c.$oid && !foundCategories[c.$oid]) {
+                foundCategories[c.$oid] = c.nome || "Sem Nome";
+            }
+        });
+    });
+
+    const categorySummary = Object.entries(foundCategories)
+        .slice(0, 15) 
+        .map(([id, name]) => `${name} (${id})`)
+        .join("\n");
+    
     // 2. Filter Target Categories
     const targetCategories = [
         "66a29d6d82566b4ded35b45b",
@@ -71,6 +86,7 @@ export async function POST(req: Request) {
     ];
     
     const filtered = allProducts.filter(p => {
+        // Se a gente quiser testar, podemos retornar true aqui para importar TUDO
         return p.categorias?.some((c: any) => targetCategories.includes(c.$oid));
     });
 
@@ -113,7 +129,7 @@ export async function POST(req: Request) {
     
     return NextResponse.json({ 
         success: true, 
-        message: `Sincronização OK! Total Capturado: ${allProducts.length} | Processados p/ o Site: ${syncedCount}` 
+        message: `Total Capturado: ${allProducts.length} | Processados: ${syncedCount}\n\nCategorias que o fornecedor enviou:\n${categorySummary}` 
     });
   } catch (error: any) {
     return NextResponse.json({ error: 'Erro Interno', details: error.message }, { status: 500 });
