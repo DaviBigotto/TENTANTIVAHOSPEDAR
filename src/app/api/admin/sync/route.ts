@@ -80,14 +80,21 @@ export async function POST(req: Request) {
     
     for (const prod of filtered) {
         try {
-            const externalId = String(prod._id?.$oid || prod._id);
-            if (!externalId) continue;
+            const externalId = String(prod._id?.$oid || prod._id || '');
+            if (!externalId || externalId === 'undefined') continue;
 
-            const nome = prod.nome || 'Produto Sem Nome';
-            const catName = prod.categorias?.[0]?.nome || 'Importados';
-            const imagem_url = prod.imagemUrl || '';
-            const preco_custo = Number(prod.variacoes?.[0]?.preco || prod.preco || 0);
-            const estoque = Number(prod.variacoes?.[0]?.estoque || prod.estoque || 0);
+            // Mapeamento flexível de campos (Vendizap costuma mudar entre nome/titulo)
+            const nome = prod.nome || prod.titulo || prod.descricao || 'Perfume Bigot';
+            
+            // Tenta pegar o nome da categoria de várias formas
+            const catName = prod.categorias?.[0]?.nome || prod.categoriaNome || 'Importados';
+            
+            // Busca a imagem em campos alternativos
+            const imagem_url = prod.imagemUrl || prod.foto || prod.imagem || '';
+            
+            // Preço e Estoque com fallbacks
+            const preco_custo = Number(prod.variacoes?.[0]?.preco || prod.preco || prod.valor || 0);
+            const estoque = Number(prod.variacoes?.[0]?.estoque || prod.estoque || prod.quantidade || 0);
             const disponivel = estoque > 0 && !prod.esgotado;
 
             await prisma.product.upsert({
