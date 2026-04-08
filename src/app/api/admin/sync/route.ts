@@ -42,35 +42,37 @@ export async function POST(req: Request) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Accept': 'application/json, text/plain, */*',
+                'X-Requested-With': 'XMLHttpRequest',
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'Origin': 'https://brandcollectionfabricasp.vendizap.com',
-                'Referer': 'https://brandcollectionfabricasp.vendizap.com/',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                'Referer': 'https://brandcollectionfabricasp.vendizap.com/'
             },
             body: JSON.stringify(payload)
         });
         
         if (!res.ok) {
-            return NextResponse.json({ error: `Erro Fornecedor: ${res.status} ${res.statusText}` }, { status: 502 });
+            return NextResponse.json({ error: `Erro HTTP Fornecedor: ${res.status}` }, { status: 502 });
         }
 
         const data = await res.json();
         const galeria = data.listas?.listaGaleria || [];
         allProducts.push(...galeria);
         
-        if (galeria.length === 0) break;
+        if (galeria.length === 0) {
+            console.log(`Página ${page} veio vazia. Resposta:`, JSON.stringify(data).substring(0, 100));
+            break;
+        }
         page++;
-        if (page > 15) break; // Reduzi o limite para o Vercel não dar timeout
+        if (page > 10) break;
     }
     
-    // Debug: Collect unique categories found
-    const foundCategories: Record<string, string> = {};
-    allProducts.forEach(p => {
-        p.categorias?.forEach((c: any) => {
-            if (c.$oid && !foundCategories[c.$oid]) {
-                foundCategories[c.$oid] = c.nome || "Sem Nome";
-            }
+    if (allProducts.length === 0) {
+        return NextResponse.json({ 
+            success: false, 
+            message: "O fornecedor não enviou nenhum produto. Isso pode ser um bloqueio temporário do IP do Vercel." 
         });
-    });
+    }
 
     // 2. Filter Target Categories (DESATIVADO PARA TRAZER TUDO)
     const filtered = allProducts; // Trazendo todos os 640 produtos
