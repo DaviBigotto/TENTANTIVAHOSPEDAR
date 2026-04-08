@@ -43,44 +43,36 @@ export async function POST(req: Request) {
             headers: {
                 'Content-Type': 'application/json',
                 'Origin': 'https://brandcollectionfabricasp.vendizap.com',
-                'Referer': 'https://brandcollectionfabricasp.vendizap.com/'
+                'Referer': 'https://brandcollectionfabricasp.vendizap.com/',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             },
             body: JSON.stringify(payload)
         });
         
         if (!res.ok) {
-            return NextResponse.json({ error: 'Failed to fetch from supplier' }, { status: 502 });
+            return NextResponse.json({ error: `Erro Fornecedor: ${res.status} ${res.statusText}` }, { status: 502 });
         }
 
         const data = await res.json();
         const galeria = data.listas?.listaGaleria || [];
-        console.log(`Página ${page}: Encontrados ${galeria.length} produtos crus.`);
         allProducts.push(...galeria);
         
         if (galeria.length === 0) break;
         page++;
-        
-        // Safety break
-        if (page > 30) break;
+        if (page > 15) break; // Reduzi o limite para o Vercel não dar timeout
     }
     
-    console.log(`Total de produtos capturados: ${allProducts.length}`);
-
     // 2. Filter Target Categories
     const targetCategories = [
-        "66a29d6d82566b4ded35b45b", // TESTER ORIGINAL PERFUME
-        "633e196a4bbfb153452e5c63", // Victoria’s Secret 100% original
-        "64e9590eae1ccc0f6165d084", // PERFUME ORIGINAL 100%
-        "64d5583b95f5fa75b4326b2c"  // PERFUME ÁRABE ORIGINAL
+        "66a29d6d82566b4ded35b45b",
+        "633e196a4bbfb153452e5c63",
+        "64e9590eae1ccc0f6165d084",
+        "64d5583b95f5fa75b4326b2c"
     ];
     
     const filtered = allProducts.filter(p => {
-        // Se não houver categorias alvo, trazemos tudo que tiver nome e preço como teste
-        if (targetCategories.length === 0) return true;
         return p.categorias?.some((c: any) => targetCategories.includes(c.$oid));
     });
-
-    console.log(`Produtos após filtragem: ${filtered.length}`);
 
     // 3. Upsert to Prisma
     let syncedCount = 0;
@@ -89,8 +81,6 @@ export async function POST(req: Request) {
             const externalId = prod._id.$oid;
             const nome = prod.nome;
             const categoriaObj = prod.categorias?.find((c: any) => targetCategories.includes(c.$oid));
-            
-            // Resolve simple category string name based on target ID
             let catName = 'Importados';
             if (categoriaObj?.$oid === '66a29d6d82566b4ded35b45b') catName = 'Tester';
             if (categoriaObj?.$oid === '633e196a4bbfb153452e5c63') catName = 'Victoria Secret';
@@ -103,44 +93,29 @@ export async function POST(req: Request) {
 
             await prisma.product.upsert({
                 where: { external_id: externalId },
-                update: {
-                    nome,
-                    categoria: catName,
-                    imagem_url,
-                    preco_custo,
-                    estoque,
-                    disponivel,
-                    updated_at: new Date()
-                },
+                update: { nome, categoria: catName, imagem_url, preco_custo, estoque, disponivel, updated_at: new Date() },
                 create: {
                     external_id: externalId,
                     nome,
                     categoria: catName,
                     imagem_url,
                     preco_custo,
-                    preco_venda: 0, // Admin must set resale price manually
+                    preco_venda: 0,
                     estoque,
                     disponivel,
-                    publicar_no_site: false, // Oculto por padrão para revisão
+                    publicar_no_site: false,
                     classificacao: 'Unissex'
                 }
             });
             syncedCount++;
-        } catch (itemError) {
-            console.error("Item sync error: ", itemError);
-            // Continue with next product
-        }
+        } catch (e) {}
     }
     
     return NextResponse.json({ 
         success: true, 
-        message: `Sincronização concluída! Foram processados ${syncedCount} produtos.` 
+        message: `Sincronização OK! Total Capturado: ${allProducts.length} | Processados p/ o Site: ${syncedCount}` 
     });
   } catch (error: any) {
-    console.error("Sync Error: ", error);
-    return NextResponse.json({ 
-      error: 'Erro Interno no Servidor', 
-      details: error.message 
-    }, { status: 500 });
+    return NextResponse.json({ error: 'Erro Interno', details: error.message }, { status: 500 });
   }
 }
