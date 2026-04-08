@@ -72,23 +72,8 @@ export async function POST(req: Request) {
         });
     });
 
-    const categorySummary = Object.entries(foundCategories)
-        .slice(0, 15) 
-        .map(([id, name]) => `${name} (${id})`)
-        .join("\n");
-    
-    // 2. Filter Target Categories
-    const targetCategories = [
-        "66a29d6d82566b4ded35b45b",
-        "633e196a4bbfb153452e5c63",
-        "64e9590eae1ccc0f6165d084",
-        "64d5583b95f5fa75b4326b2c"
-    ];
-    
-    const filtered = allProducts.filter(p => {
-        // Se a gente quiser testar, podemos retornar true aqui para importar TUDO
-        return p.categorias?.some((c: any) => targetCategories.includes(c.$oid));
-    });
+    // 2. Filter Target Categories (DESATIVADO PARA TRAZER TUDO)
+    const filtered = allProducts; // Trazendo todos os 640 produtos
 
     // 3. Upsert to Prisma
     let syncedCount = 0;
@@ -96,12 +81,9 @@ export async function POST(req: Request) {
         try {
             const externalId = prod._id.$oid;
             const nome = prod.nome;
-            const categoriaObj = prod.categorias?.find((c: any) => targetCategories.includes(c.$oid));
-            let catName = 'Importados';
-            if (categoriaObj?.$oid === '66a29d6d82566b4ded35b45b') catName = 'Tester';
-            if (categoriaObj?.$oid === '633e196a4bbfb153452e5c63') catName = 'Victoria Secret';
-            if (categoriaObj?.$oid === '64d5583b95f5fa75b4326b2c') catName = 'Árables';
-
+            
+            // Tenta pegar o nome da categoria se existir, senão usa 'Geral'
+            const catName = prod.categorias?.[0]?.nome || 'Importados';
             const imagem_url = prod.imagemUrl || null;
             const preco_custo = prod.variacoes?.[0]?.preco || prod.preco || 0;
             const estoque = prod.variacoes?.[0]?.estoque || prod.estoque || 0;
@@ -129,7 +111,7 @@ export async function POST(req: Request) {
     
     return NextResponse.json({ 
         success: true, 
-        message: `Total Capturado: ${allProducts.length} | Processados: ${syncedCount}\n\nCategorias que o fornecedor enviou:\n${categorySummary}` 
+        message: `SUCESSO! Foram sincronizados ${syncedCount} produtos para o seu painel.` 
     });
   } catch (error: any) {
     return NextResponse.json({ error: 'Erro Interno', details: error.message }, { status: 500 });
