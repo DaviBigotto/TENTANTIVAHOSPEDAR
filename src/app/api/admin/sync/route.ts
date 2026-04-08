@@ -54,6 +54,7 @@ export async function POST(req: Request) {
 
         const data = await res.json();
         const galeria = data.listas?.listaGaleria || [];
+        console.log(`Página ${page}: Encontrados ${galeria.length} produtos crus.`);
         allProducts.push(...galeria);
         
         if (galeria.length === 0) break;
@@ -63,6 +64,8 @@ export async function POST(req: Request) {
         if (page > 30) break;
     }
     
+    console.log(`Total de produtos capturados: ${allProducts.length}`);
+
     // 2. Filter Target Categories
     const targetCategories = [
         "66a29d6d82566b4ded35b45b", // TESTER ORIGINAL PERFUME
@@ -72,8 +75,12 @@ export async function POST(req: Request) {
     ];
     
     const filtered = allProducts.filter(p => {
+        // Se não houver categorias alvo, trazemos tudo que tiver nome e preço como teste
+        if (targetCategories.length === 0) return true;
         return p.categorias?.some((c: any) => targetCategories.includes(c.$oid));
     });
+
+    console.log(`Produtos após filtragem: ${filtered.length}`);
 
     // 3. Upsert to Prisma
     let syncedCount = 0;
